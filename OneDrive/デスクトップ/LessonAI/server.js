@@ -445,22 +445,37 @@ async function handleCheckout(request, response) {
     sendJson(response, 401, { error: "Unauthorized" });
     return;
   }
-  if (!stripeClient) {
-    const error = new Error("Stripe is not configured.");
-    error.status = 500;
-    throw error;
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_PRICE_ID) {
+    sendJson(response, 500, { error: "Stripe is not configured." });
+    return;
   }
   const appUrl = process.env.APP_URL || "http://localhost:3000";
-  const session = await stripeClient.checkout.sessions.create({
+  const params = new URLSearchParams({
     mode: "subscription",
-    payment_method_types: ["card"],
-    line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+    "payment_method_types[0]": "card",
+    "line_items[0][price]": process.env.STRIPE_PRICE_ID,
+    "line_items[0][quantity]": "1",
     customer_email: user.email,
     success_url: `${appUrl}/?checkout=success`,
     cancel_url: `${appUrl}/`,
-    metadata: { user_id: user.id },
+    "metadata[user_id]": user.id,
   });
-  sendJson(response, 200, { url: session.url });
+  const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params.toString(),
+  });
+  const data = await res.json();
+  console.log("[checkout] Stripe status:", res.status, JSON.stringify(data).slice(0, 200));
+  if (!res.ok) {
+    const error = new Error(data.error?.message || "Stripe error");
+    error.status = 502;
+    throw error;
+  }
+  sendJson(response, 200, { url: data.url });
 }
 
 async function handleWebhook(request, response) {
