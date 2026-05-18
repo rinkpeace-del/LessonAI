@@ -217,14 +217,14 @@ ${structure}
 }
 
 
-async function callClaude(prompt) {
+async function callClaude(prompt, requestedModel) {
   if (!process.env.ANTHROPIC_API_KEY) {
     const error = new Error("ANTHROPIC_API_KEY is not set.");
     error.status = 400;
     throw error;
   }
 
-  const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+  const model = requestedModel || process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
   const apiResponse = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -263,7 +263,7 @@ async function callClaude(prompt) {
 }
 
 async function generateLesson(data) {
-  const { text, model } = await callClaude(buildPrompt(data));
+  const { text, model } = await callClaude(buildPrompt(data), data.model);
   return { markdown: text, model };
 }
 
@@ -294,7 +294,7 @@ async function editLesson(data) {
     throw error;
   }
 
-  const { text, model } = await callClaude(buildEditPrompt(data));
+  const { text, model } = await callClaude(buildEditPrompt(data), data.model);
   return { markdown: text, model };
 }
 

@@ -222,6 +222,7 @@ function getFormData() {
     requirements: document.querySelector("#requirements").value.trim(),
     materials: ["lesson", "worksheet", "quiz"],
     audiences: selectedAudiences,
+    model: document.querySelector("#ai-model").value,
   };
 }
 
