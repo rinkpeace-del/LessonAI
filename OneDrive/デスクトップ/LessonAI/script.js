@@ -701,6 +701,7 @@ async function generateWithAi() {
     renderLessonSections(currentStudentMarkdown, currentTeacherMarkdown);
     saveCurrentHistory(data, payload.model);
     statusMessage.textContent = `${payload.model}で生成しました。`;
+    refreshUserInfo();
   } catch (error) {
     renderLessonSections(currentStudentMarkdown, currentTeacherMarkdown);
     statusMessage.textContent = `AI生成に失敗したため、ローカルのたたき台を表示しています。${error.message}`;
