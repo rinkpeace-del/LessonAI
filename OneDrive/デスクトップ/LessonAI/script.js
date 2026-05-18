@@ -100,15 +100,24 @@ closeModalButton?.addEventListener("click", hideUpgradeModal);
 
 goProButton?.addEventListener("click", async () => {
   if (!currentSession) { showUpgradeModal(); return; }
+  goProButton.disabled = true;
+  goProButton.textContent = "処理中...";
   try {
     const res = await fetch("/api/checkout", {
       method: "POST",
       headers: getAuthHeaders(),
     });
     const data = await res.json();
-    if (data.url) window.location.href = data.url;
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      alert("決済ページを開けませんでした: " + (data.error || "不明なエラー"));
+    }
   } catch (e) {
-    console.error(e);
+    alert("エラーが発生しました: " + e.message);
+  } finally {
+    goProButton.disabled = false;
+    goProButton.textContent = "Proにアップグレード（¥980/月）";
   }
 });
 
