@@ -224,7 +224,7 @@ async function callClaude(prompt) {
     throw error;
   }
 
-  const model = process.env.ANTHROPIC_MODEL || "claude-opus-4-7";
+  const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
   const apiResponse = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
