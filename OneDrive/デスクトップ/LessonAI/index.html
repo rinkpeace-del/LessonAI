@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ja">
+
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LessonAI | 教材作成AIツール</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-label="教材作成ツール">
+        <aside class="panel builder-panel">
+          <div class="brand-block">
+            <span class="brand-mark">L</span>
+            <div>
+              <h1>LessonAI</h1>
+              <p>教材のたたき台を数分で整える制作ツール</p>
+            </div>
+          </div>
+
+          <form id="lesson-form" class="lesson-form">
+            <label>
+              教科
+              <select id="subject">
+                <option>英語</option>
+                <option>国語</option>
+                <option>数学</option>
+                <option>理科</option>
+                <option>社会</option>
+                <option>総合</option>
+              </select>
+            </label>
+
+            <label>
+              学年
+              <select id="grade">
+                <option>小学3年</option>
+                <option>小学4年</option>
+                <option>小学5年</option>
+                <option>小学6年</option>
+                <option selected>中学1年</option>
+                <option>中学2年</option>
+                <option>中学3年</option>
+                <option>高校</option>
+              </select>
+            </label>
+
+            <label class="wide">
+              単元・テーマ
+              <input id="topic" type="text" value="be動詞の基本" placeholder="例: 現在完了、比例と反比例、物語文の読解" />
+            </label>
+
+            <label>
+              難易度
+              <select id="level">
+                <option>やさしい</option>
+                <option selected>標準</option>
+                <option>発展</option>
+              </select>
+            </label>
+
+            <label>
+              授業時間
+              <select id="duration">
+                <option>30分</option>
+                <option selected>45分</option>
+                <option>50分</option>
+                <option>90分</option>
+              </select>
+            </label>
+
+            <fieldset class="wide">
+              <legend>出力形式</legend>
+              <label class="check"><input type="checkbox" name="audiences" value="student" checked />生徒用</label>
+              <label class="check"><input type="checkbox" name="audiences" value="teacher" checked />先生用</label>
+            </fieldset>
+
+            <label class="wide">
+              ねらい・条件
+              <textarea id="requirements" rows="5" placeholder="例: 英語が苦手な生徒でも参加しやすく、ペア活動を入れたい。">英語が苦手な生徒でも答えやすい例文から始め、最後に自分のことを1文で言えるようにする。</textarea>
+            </label>
+
+            <label class="wide file-field">
+              参考PDF
+              <input id="source-pdf" type="file" accept="application/pdf" />
+              <span id="pdf-status" class="field-note">PDFを追加すると、その内容を参考に教材を作ります。</span>
+            </label>
+
+            <button type="submit" class="primary-button">
+              <span id="generate-label">AIで教材を生成</span>
+            </button>
+          </form>
+
+          <section class="history-panel" aria-label="最近作った教材">
+            <div class="history-header">
+              <h2>最近の教材</h2>
+              <button id="clear-history-button" type="button">削除</button>
+            </div>
+            <div id="history-list" class="history-list"></div>
+          </section>
+        </aside>
+
+        <section class="output-area">
+          <header class="output-header">
+            <div>
+              <p class="eyebrow">Generated Material</p>
+              <h2 id="output-title">be動詞の基本</h2>
+            </div>
+            <div class="actions">
+              <button id="copy-button" type="button" title="コピー">Copy</button>
+              <button id="edit-button" type="button" title="現在の教材を編集">編集</button>
+              <button id="ai-edit-button" type="button" title="AIで現在の教材を修正">AI修正</button>
+              <button id="save-edit-button" class="hidden" type="button" title="編集を保存">保存</button>
+              <button id="cancel-edit-button" class="hidden" type="button" title="編集をキャンセル">取消</button>
+              <button id="student-pdf-button" type="button" title="生徒用PDFで保存">生徒PDF</button>
+              <button id="teacher-pdf-button" type="button" title="先生用PDFで保存">先生PDF</button>
+            </div>
+          </header>
+
+          <nav class="tabs" aria-label="出力タブ">
+            <button class="tab active" type="button" data-tab="student">生徒用</button>
+            <button class="tab" type="button" data-tab="teacher">先生用</button>
+          </nav>
+
+          <article id="student" class="result-panel"></article>
+          <article id="teacher" class="result-panel hidden"></article>
+          <section id="ai-edit-panel" class="ai-edit-panel hidden" aria-label="AI修正">
+            <label>
+              AIへの修正指示
+              <textarea id="ai-edit-instruction" rows="3" placeholder="例: もっとやさしくして、問題を3問増やす"></textarea>
+            </label>
+            <div class="ai-edit-actions">
+              <button id="run-ai-edit-button" type="button">修正する</button>
+              <button id="close-ai-edit-button" type="button">閉じる</button>
+            </div>
+          </section>
+          <p id="status-message" class="status-message" role="status"></p>
+        </section>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked@15/marked.min.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
