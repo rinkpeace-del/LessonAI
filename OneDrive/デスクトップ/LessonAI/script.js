@@ -1,3 +1,116 @@
+// ── Auth state ───────────────────────────────────────────────────────────────
+let supabaseClient = null;
+let currentSession = null;
+let currentUser = null;
+
+const loginButton = document.querySelector("#login-button");
+const userInfo = document.querySelector("#user-info");
+const userEmailEl = document.querySelector("#user-email");
+const usageBadge = document.querySelector("#usage-badge");
+const upgradeButton = document.querySelector("#upgrade-button");
+const logoutButton = document.querySelector("#logout-button");
+const upgradeModal = document.querySelector("#upgrade-modal");
+const goProButton = document.querySelector("#go-pro-button");
+const closeModalButton = document.querySelector("#close-modal-button");
+
+async function initAuth() {
+  try {
+    const res = await fetch("/api/config");
+    const cfg = await res.json();
+    if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) return;
+
+    supabaseClient = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
+      currentSession = session;
+      currentUser = session?.user || null;
+      await refreshUserInfo();
+    });
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    currentSession = session;
+    currentUser = session?.user || null;
+    await refreshUserInfo();
+  } catch (e) {
+    console.warn("[auth] init failed", e);
+  }
+}
+
+async function refreshUserInfo() {
+  if (!currentSession) {
+    loginButton.classList.remove("hidden");
+    userInfo.classList.add("hidden");
+    return;
+  }
+
+  loginButton.classList.add("hidden");
+  userInfo.classList.remove("hidden");
+  userEmailEl.textContent = currentUser?.email || "";
+
+  try {
+    const res = await fetch("/api/auth/me", {
+      headers: { Authorization: `Bearer ${currentSession.access_token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.usageLimit !== null) {
+        usageBadge.textContent = `今月 ${data.usageCount}/${data.usageLimit} 回`;
+        usageBadge.classList.toggle("usage-warn", data.usageCount >= data.usageLimit);
+        upgradeButton.classList.remove("hidden");
+      } else {
+        usageBadge.textContent = "Pro";
+        upgradeButton.classList.add("hidden");
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function getAuthHeaders() {
+  if (!currentSession) return {};
+  return { Authorization: `Bearer ${currentSession.access_token}` };
+}
+
+function showUpgradeModal() {
+  upgradeModal.classList.remove("hidden");
+}
+
+function hideUpgradeModal() {
+  upgradeModal.classList.add("hidden");
+}
+
+loginButton?.addEventListener("click", async () => {
+  if (!supabaseClient) return;
+  await supabaseClient.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.origin },
+  });
+});
+
+logoutButton?.addEventListener("click", async () => {
+  if (!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+});
+
+upgradeButton?.addEventListener("click", showUpgradeModal);
+closeModalButton?.addEventListener("click", hideUpgradeModal);
+
+goProButton?.addEventListener("click", async () => {
+  if (!currentSession) { showUpgradeModal(); return; }
+  try {
+    const res = await fetch("/api/checkout", {
+      method: "POST",
+      headers: getAuthHeaders(),
+    });
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+  } catch (e) {
+    console.error(e);
+  }
+});
+
+// ── Main UI ───────────────────────────────────────────────────────────────────
 const form = document.querySelector("#lesson-form");
 const studentPanel = document.querySelector("#student");
 const teacherPanel = document.querySelector("#teacher");
@@ -547,9 +660,15 @@ async function generateWithAi() {
       currentPrompt = buildPrompt(data);
     }
 
+    if (!currentSession && supabaseClient) {
+      statusMessage.textContent = "ログインが必要です。";
+      statusMessage.classList.add("error");
+      return;
+    }
+
     const response = await fetch("/api/generate", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({
         ...data,
         materials: data.materials.map((type) => materialLabels[type] || type),
@@ -557,6 +676,17 @@ async function generateWithAi() {
       }),
     });
     const payload = await response.json();
+
+    if (response.status === 402) {
+      showUpgradeModal();
+      throw new Error(payload.error || "利用制限に達しました。");
+    }
+
+    if (response.status === 401) {
+      statusMessage.textContent = "ログインが必要です。";
+      statusMessage.classList.add("error");
+      return;
+    }
 
     if (!response.ok) {
       throw new Error(payload.error || "教材生成に失敗しました。");
@@ -825,3 +955,4 @@ teacherPdfButton.addEventListener("click", () => {
 
 updateOutput();
 renderHistory();
+initAuth();

@@ -2,8 +2,11 @@ const http = require("node:http");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { PDFParse } = require("pdf-parse");
+const { createClient } = require("@supabase/supabase-js");
+const Stripe = require("stripe");
 
 const ROOT = __dirname;
+const FREE_LIMIT = 3;
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -347,6 +350,159 @@ async function editLesson(data) {
   return { markdown: text, model };
 }
 
+// ── Supabase & Stripe ────────────────────────────────────────────────────────
+
+let supabaseAdmin = null;
+let stripeClient = null;
+
+function initServices() {
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    supabaseAdmin = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+  }
+  if (process.env.STRIPE_SECRET_KEY) {
+    stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+}
+
+async function getAuthUser(request) {
+  const auth = request.headers.authorization;
+  if (!auth?.startsWith("Bearer ") || !supabaseAdmin) return null;
+  try {
+    const { data: { user } } = await supabaseAdmin.auth.getUser(auth.slice(7));
+    return user || null;
+  } catch {
+    return null;
+  }
+}
+
+async function ensureProfile(user) {
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+  if (!profile) {
+    const row = { id: user.id, email: user.email, subscription_status: "free" };
+    await supabaseAdmin.from("profiles").insert(row);
+    return row;
+  }
+  return profile;
+}
+
+async function getUsageCount(userId) {
+  const yearMonth = new Date().toISOString().slice(0, 7);
+  const { data } = await supabaseAdmin
+    .from("usage")
+    .select("count")
+    .eq("user_id", userId)
+    .eq("year_month", yearMonth)
+    .single();
+  return data?.count || 0;
+}
+
+async function incrementUsage(userId) {
+  const yearMonth = new Date().toISOString().slice(0, 7);
+  const count = await getUsageCount(userId);
+  await supabaseAdmin.from("usage").upsert(
+    { user_id: userId, year_month: yearMonth, count: count + 1 },
+    { onConflict: "user_id,year_month" }
+  );
+}
+
+// ── Route handlers ───────────────────────────────────────────────────────────
+
+function handleConfig(request, response) {
+  sendJson(response, 200, {
+    supabaseUrl: process.env.SUPABASE_URL || "",
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
+  });
+}
+
+async function handleAuthMe(request, response) {
+  const user = await getAuthUser(request);
+  if (!user) {
+    sendJson(response, 401, { error: "Unauthorized" });
+    return;
+  }
+  const profile = await ensureProfile(user);
+  const usageCount = await getUsageCount(user.id);
+  const isPro = profile.subscription_status === "active";
+  sendJson(response, 200, {
+    email: user.email,
+    plan: isPro ? "pro" : "free",
+    usageCount,
+    usageLimit: isPro ? null : FREE_LIMIT,
+  });
+}
+
+async function handleCheckout(request, response) {
+  const user = await getAuthUser(request);
+  if (!user) {
+    sendJson(response, 401, { error: "Unauthorized" });
+    return;
+  }
+  if (!stripeClient) {
+    const error = new Error("Stripe is not configured.");
+    error.status = 500;
+    throw error;
+  }
+  const appUrl = process.env.APP_URL || "http://localhost:3000";
+  const session = await stripeClient.checkout.sessions.create({
+    mode: "subscription",
+    payment_method_types: ["card"],
+    line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+    customer_email: user.email,
+    success_url: `${appUrl}/?checkout=success`,
+    cancel_url: `${appUrl}/`,
+    metadata: { user_id: user.id },
+  });
+  sendJson(response, 200, { url: session.url });
+}
+
+async function handleWebhook(request, response) {
+  if (!stripeClient || !process.env.STRIPE_WEBHOOK_SECRET) {
+    sendJson(response, 500, { error: "Webhook not configured." });
+    return;
+  }
+  const body = await readBuffer(request);
+  const sig = request.headers["stripe-signature"];
+  let event;
+  try {
+    event = stripeClient.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    sendJson(response, 400, { error: `Webhook Error: ${err.message}` });
+    return;
+  }
+
+  const obj = event.data.object;
+  if (event.type === "checkout.session.completed") {
+    const userId = obj.metadata?.user_id;
+    if (userId && supabaseAdmin) {
+      await supabaseAdmin.from("profiles").update({
+        stripe_customer_id: obj.customer,
+        stripe_subscription_id: obj.subscription,
+        subscription_status: "active",
+      }).eq("id", userId);
+    }
+  } else if (
+    event.type === "customer.subscription.deleted" ||
+    (event.type === "customer.subscription.updated" && obj.status !== "active")
+  ) {
+    if (supabaseAdmin) {
+      await supabaseAdmin.from("profiles").update({
+        subscription_status: "free",
+      }).eq("stripe_customer_id", obj.customer);
+    }
+  }
+  sendJson(response, 200, { received: true });
+}
+
+// ── Static files ─────────────────────────────────────────────────────────────
+
 async function serveStatic(request, response) {
   const url = new URL(request.url, `http://${request.headers.host}`);
   const requestedPath = url.pathname === "/" ? "/index.html" : url.pathname;
@@ -370,60 +526,113 @@ async function serveStatic(request, response) {
   }
 }
 
+// ── Main request handler ─────────────────────────────────────────────────────
+
 async function handleRequest(request, response) {
   try {
-  if (request.method === "POST" && request.url === "/api/extract-pdf") {
-    try {
-      const body = await readBuffer(request);
-      const { filename, content } = parseMultipartFile(body, request.headers["content-type"] || "");
-      const text = await extractPdfText(content);
+    const url = new URL(request.url, `http://${request.headers.host}`);
+    const { method } = request;
+    const { pathname } = url;
 
-      if (!text) {
-        const error = new Error("PDFからテキストを抽出できませんでした。スキャンPDFの場合はOCR対応が必要です。");
-        error.status = 422;
-        throw error;
+    if (method === "GET" && pathname === "/api/config") {
+      handleConfig(request, response);
+      return;
+    }
+
+    if (method === "GET" && pathname === "/api/auth/me") {
+      await handleAuthMe(request, response);
+      return;
+    }
+
+    if (method === "POST" && pathname === "/api/checkout") {
+      try {
+        await handleCheckout(request, response);
+      } catch (error) {
+        sendJson(response, error.status || 500, { error: error.message });
       }
-
-      sendJson(response, 200, {
-        filename,
-        text,
-        charCount: text.length,
-      });
-    } catch (error) {
-      sendJson(response, error.status || 500, { error: error.message });
+      return;
     }
-    return;
-  }
 
-  if (request.method === "POST" && request.url === "/api/generate") {
-    try {
-      const data = await readJson(request);
-      const result = await generateLesson(data);
-      sendJson(response, 200, result);
-    } catch (error) {
-      sendJson(response, error.status || 500, { error: error.message });
+    if (method === "POST" && pathname === "/api/webhook") {
+      try {
+        await handleWebhook(request, response);
+      } catch (error) {
+        sendJson(response, error.status || 500, { error: error.message });
+      }
+      return;
     }
-    return;
-  }
 
-  if (request.method === "POST" && request.url === "/api/edit") {
-    try {
-      const data = await readJson(request);
-      const result = await editLesson(data);
-      sendJson(response, 200, result);
-    } catch (error) {
-      sendJson(response, error.status || 500, { error: error.message });
+    if (method === "POST" && pathname === "/api/extract-pdf") {
+      try {
+        const body = await readBuffer(request);
+        const { filename, content } = parseMultipartFile(body, request.headers["content-type"] || "");
+        const text = await extractPdfText(content);
+
+        if (!text) {
+          const error = new Error("PDFからテキストを抽出できませんでした。スキャンPDFの場合はOCR対応が必要です。");
+          error.status = 422;
+          throw error;
+        }
+
+        sendJson(response, 200, { filename, text, charCount: text.length });
+      } catch (error) {
+        sendJson(response, error.status || 500, { error: error.message });
+      }
+      return;
     }
-    return;
-  }
 
-  if (request.method === "GET") {
-    await serveStatic(request, response);
-    return;
-  }
+    if (method === "POST" && pathname === "/api/generate") {
+      try {
+        if (supabaseAdmin) {
+          const user = await getAuthUser(request);
+          if (!user) {
+            sendJson(response, 401, { error: "ログインが必要です。" });
+            return;
+          }
+          const profile = await ensureProfile(user);
+          const isPro = profile.subscription_status === "active";
+          if (!isPro) {
+            const count = await getUsageCount(user.id);
+            if (count >= FREE_LIMIT) {
+              sendJson(response, 402, {
+                error: `今月の無料生成回数（${FREE_LIMIT}回）を使い切りました。Proプランにアップグレードしてください。`,
+              });
+              return;
+            }
+          }
+          const data = await readJson(request);
+          const result = await generateLesson(data);
+          await incrementUsage(user.id);
+          sendJson(response, 200, result);
+        } else {
+          const data = await readJson(request);
+          const result = await generateLesson(data);
+          sendJson(response, 200, result);
+        }
+      } catch (error) {
+        sendJson(response, error.status || 500, { error: error.message });
+      }
+      return;
+    }
 
-  response.writeHead(405);
-  response.end("Method not allowed");
+    if (method === "POST" && pathname === "/api/edit") {
+      try {
+        const data = await readJson(request);
+        const result = await editLesson(data);
+        sendJson(response, 200, result);
+      } catch (error) {
+        sendJson(response, error.status || 500, { error: error.message });
+      }
+      return;
+    }
+
+    if (method === "GET") {
+      await serveStatic(request, response);
+      return;
+    }
+
+    response.writeHead(405);
+    response.end("Method not allowed");
   } catch (err) {
     console.error("[handleRequest uncaught]", err);
     if (!response.headersSent) {
@@ -433,6 +642,7 @@ async function handleRequest(request, response) {
 }
 
 loadEnvFile().then(() => {
+  initServices();
   const port = Number(process.env.PORT || 3000);
   http.createServer(handleRequest).listen(port, () => {
     console.log(`LessonAI is running at http://localhost:${port}`);

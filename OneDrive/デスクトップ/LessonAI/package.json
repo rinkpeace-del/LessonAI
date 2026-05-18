@@ -3,6 +3,8 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "pdf-parse": "^2.4.5"
+    "@supabase/supabase-js": "^2.105.4",
+    "pdf-parse": "^2.4.5",
+    "stripe": "^22.1.1"
   }
 }

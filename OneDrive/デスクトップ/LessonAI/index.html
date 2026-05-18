@@ -20,6 +20,16 @@
             </div>
           </div>
 
+          <div id="auth-bar" class="auth-bar">
+            <div id="user-info" class="user-info hidden">
+              <span id="user-email" class="user-email"></span>
+              <span id="usage-badge" class="usage-badge"></span>
+              <button id="upgrade-button" type="button" class="upgrade-button hidden">Proにアップグレード</button>
+              <button id="logout-button" type="button" class="logout-button">ログアウト</button>
+            </div>
+            <button id="login-button" type="button" class="login-button">Googleでログイン</button>
+          </div>
+
           <form id="lesson-form" class="lesson-form">
             <label>
               教科
@@ -150,6 +160,18 @@
       </section>
     </main>
 
+    <div id="upgrade-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal">
+        <h2>今月の無料回数を使い切りました</h2>
+        <p>無料プランでは月3回まで教材を生成できます。<br>Proプランなら無制限で使えます。</p>
+        <div class="modal-actions">
+          <button id="go-pro-button" type="button" class="primary-button">Proにアップグレード（¥980/月）</button>
+          <button id="close-modal-button" type="button" class="modal-cancel">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@15/marked.min.js"></script>
     <script src="script.js"></script>
   </body>

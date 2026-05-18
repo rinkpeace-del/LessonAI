@@ -562,6 +562,138 @@ legend {
   font-size: 12px;
 }
 
+.auth-bar {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.user-email {
+  font-size: 12px;
+  color: var(--muted);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-dark);
+  background: rgba(13, 124, 115, 0.1);
+  border-radius: 99px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.usage-badge.usage-warn {
+  color: #b2374f;
+  background: rgba(178, 55, 79, 0.1);
+}
+
+.upgrade-button {
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--accent-dark);
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.upgrade-button:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.logout-button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.login-button {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  text-align: center;
+}
+
+.login-button:hover {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 32, 38, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 400px;
+  width: calc(100% - 40px);
+  box-shadow: var(--shadow);
+}
+
+.modal h2 {
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+
+.modal p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+  margin-bottom: 20px;
+}
+
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal-cancel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  padding: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 @media (max-width: 900px) {
   .app-shell {
     padding: 14px;
