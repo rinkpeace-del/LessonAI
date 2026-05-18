@@ -651,10 +651,13 @@ legend {
   position: fixed;
   inset: 0;
   background: rgba(23, 32, 38, 0.55);
-  display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
+}
+
+.modal-overlay:not(.hidden) {
+  display: flex;
 }
 
 .modal {
