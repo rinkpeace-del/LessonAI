@@ -548,6 +548,7 @@ async function handleRequest(request, response) {
       try {
         await handleCheckout(request, response);
       } catch (error) {
+        console.error("[checkout error]", error);
         sendJson(response, error.status || 500, { error: error.message });
       }
       return;
