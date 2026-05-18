@@ -262,8 +262,57 @@ async function callClaude(prompt, requestedModel) {
   return { text: payload.content?.[0]?.text || "", model };
 }
 
+async function callOpenAI(prompt, requestedModel) {
+  if (!process.env.OPENAI_API_KEY) {
+    const error = new Error("OPENAI_API_KEY is not set.");
+    error.status = 400;
+    throw error;
+  }
+
+  const model = requestedModel || "gpt-5.5";
+  const apiResponse = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({ model, input: prompt, max_output_tokens: 3500 }),
+  });
+
+  const rawText = await apiResponse.text();
+  console.log("[OpenAI status]", apiResponse.status);
+  console.log("[OpenAI response]", rawText.slice(0, 500));
+
+  let payload;
+  try {
+    payload = JSON.parse(rawText);
+  } catch {
+    const error = new Error(`OpenAI returned invalid JSON (status ${apiResponse.status}): ${rawText.slice(0, 200)}`);
+    error.status = 502;
+    throw error;
+  }
+
+  if (!apiResponse.ok) {
+    const message = payload.error?.message || "OpenAI API request failed.";
+    const error = new Error(message);
+    error.status = apiResponse.status;
+    throw error;
+  }
+
+  const text = typeof payload.output_text === "string"
+    ? payload.output_text
+    : (payload.output || []).flatMap(o => o.content || []).filter(c => c.type === "output_text").map(c => c.text).join("\n").trim();
+
+  return { text, model };
+}
+
+function callAI(prompt, model) {
+  if (model && model.startsWith("gpt")) return callOpenAI(prompt, model);
+  return callClaude(prompt, model);
+}
+
 async function generateLesson(data) {
-  const { text, model } = await callClaude(buildPrompt(data), data.model);
+  const { text, model } = await callAI(buildPrompt(data), data.model);
   return { markdown: text, model };
 }
 
@@ -294,7 +343,7 @@ async function editLesson(data) {
     throw error;
   }
 
-  const { text, model } = await callClaude(buildEditPrompt(data), data.model);
+  const { text, model } = await callAI(buildEditPrompt(data), data.model);
   return { markdown: text, model };
 }
 
