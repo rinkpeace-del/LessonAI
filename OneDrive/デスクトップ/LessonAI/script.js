@@ -89,8 +89,10 @@ loginButton?.addEventListener("click", async () => {
 });
 
 logoutButton?.addEventListener("click", async () => {
-  if (!supabaseClient) return;
-  await supabaseClient.auth.signOut();
+  if (supabaseClient) await supabaseClient.auth.signOut();
+  currentSession = null;
+  currentUser = null;
+  window.location.reload();
 });
 
 upgradeButton?.addEventListener("click", showUpgradeModal);
