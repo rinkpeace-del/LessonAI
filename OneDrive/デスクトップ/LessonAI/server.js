@@ -216,60 +216,55 @@ ${structure}
 - 不自然な英文や難しすぎる語彙を避ける`;
 }
 
-function extractOutputText(payload) {
-  if (typeof payload.output_text === "string") return payload.output_text;
 
-  const chunks = [];
-  for (const item of payload.output || []) {
-    for (const content of item.content || []) {
-      if (content.type === "output_text" && content.text) chunks.push(content.text);
-    }
-  }
-  return chunks.join("\n").trim();
-}
-
-async function generateLesson(data) {
-  if (!process.env.OPENAI_API_KEY) {
-    const error = new Error("OPENAI_API_KEY is not set.");
+async function callClaude(prompt) {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    const error = new Error("ANTHROPIC_API_KEY is not set.");
     error.status = 400;
     throw error;
   }
 
-  const model = process.env.OPENAI_MODEL || "gpt-5.5";
-  const apiResponse = await fetch("https://api.openai.com/v1/responses", {
+  const model = process.env.ANTHROPIC_MODEL || "claude-opus-4-7";
+  const apiResponse = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "x-api-key": process.env.ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
       model,
-      input: buildPrompt(data),
-      max_output_tokens: 3500,
+      max_tokens: 3500,
+      messages: [{ role: "user", content: prompt }],
     }),
   });
 
   const rawText = await apiResponse.text();
-  console.log("[OpenAI generate status]", apiResponse.status);
-  console.log("[OpenAI generate response]", rawText.slice(0, 500));
+  console.log("[Claude status]", apiResponse.status);
+  console.log("[Claude response]", rawText.slice(0, 500));
 
   let payload;
   try {
     payload = JSON.parse(rawText);
   } catch {
-    const error = new Error(`OpenAI returned invalid JSON (status ${apiResponse.status}): ${rawText.slice(0, 200)}`);
+    const error = new Error(`Claude returned invalid JSON (status ${apiResponse.status}): ${rawText.slice(0, 200)}`);
     error.status = 502;
     throw error;
   }
 
   if (!apiResponse.ok) {
-    const message = payload.error?.message || "OpenAI API request failed.";
+    const message = payload.error?.message || "Anthropic API request failed.";
     const error = new Error(message);
     error.status = apiResponse.status;
     throw error;
   }
 
-  return extractOutputText(payload);
+  return { text: payload.content?.[0]?.text || "", model };
+}
+
+async function generateLesson(data) {
+  const { text, model } = await callClaude(buildPrompt(data));
+  return { markdown: text, model };
 }
 
 function buildEditPrompt(data) {
@@ -293,42 +288,14 @@ ${data.markdown || ""}
 }
 
 async function editLesson(data) {
-  if (!process.env.OPENAI_API_KEY) {
-    const error = new Error("OPENAI_API_KEY is not set.");
-    error.status = 400;
-    throw error;
-  }
-
   if (!data.markdown || !data.instruction) {
     const error = new Error("教材本文と修正指示が必要です。");
     error.status = 400;
     throw error;
   }
 
-  const model = process.env.OPENAI_MODEL || "gpt-5.5";
-  const apiResponse = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model,
-      input: buildEditPrompt(data),
-      max_output_tokens: 3500,
-    }),
-  });
-
-  const payload = await apiResponse.json().catch(() => ({}));
-
-  if (!apiResponse.ok) {
-    const message = payload.error?.message || "OpenAI API request failed.";
-    const error = new Error(message);
-    error.status = apiResponse.status;
-    throw error;
-  }
-
-  return extractOutputText(payload);
+  const { text, model } = await callClaude(buildEditPrompt(data));
+  return { markdown: text, model };
 }
 
 async function serveStatic(request, response) {
@@ -382,8 +349,8 @@ async function handleRequest(request, response) {
   if (request.method === "POST" && request.url === "/api/generate") {
     try {
       const data = await readJson(request);
-      const markdown = await generateLesson(data);
-      sendJson(response, 200, { markdown, model: process.env.OPENAI_MODEL || "gpt-5.5" });
+      const result = await generateLesson(data);
+      sendJson(response, 200, result);
     } catch (error) {
       sendJson(response, error.status || 500, { error: error.message });
     }
@@ -393,8 +360,8 @@ async function handleRequest(request, response) {
   if (request.method === "POST" && request.url === "/api/edit") {
     try {
       const data = await readJson(request);
-      const markdown = await editLesson(data);
-      sendJson(response, 200, { markdown, model: process.env.OPENAI_MODEL || "gpt-5.5" });
+      const result = await editLesson(data);
+      sendJson(response, 200, result);
     } catch (error) {
       sendJson(response, error.status || 500, { error: error.message });
     }
