@@ -1,6 +1,7 @@
 const http = require("node:http");
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const { PDFParse } = require("pdf-parse");
 const { createClient } = require("@supabase/supabase-js");
 const Stripe = require("stripe");
@@ -479,16 +480,32 @@ async function handleCheckout(request, response) {
 }
 
 async function handleWebhook(request, response) {
-  if (!stripeClient || !process.env.STRIPE_WEBHOOK_SECRET) {
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
     sendJson(response, 500, { error: "Webhook not configured." });
     return;
   }
   const body = await readBuffer(request);
   const sig = request.headers["stripe-signature"];
+
+  // 手動でStripe署名を検証（SDKを使わない）
   let event;
   try {
-    event = stripeClient.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    const parts = sig.split(",").reduce((acc, part) => {
+      const [k, v] = part.split("=");
+      if (k === "t") acc.t = v;
+      if (k === "v1") acc.v1 = v;
+      return acc;
+    }, {});
+    if (!parts.t || !parts.v1) throw new Error("Invalid signature header");
+    const signedPayload = `${parts.t}.${body.toString()}`;
+    const expected = crypto.createHmac("sha256", process.env.STRIPE_WEBHOOK_SECRET)
+      .update(signedPayload).digest("hex");
+    if (!crypto.timingSafeEqual(Buffer.from(parts.v1, "hex"), Buffer.from(expected, "hex"))) {
+      throw new Error("Signature mismatch");
+    }
+    event = JSON.parse(body.toString());
   } catch (err) {
+    console.error("[webhook error]", err.message);
     sendJson(response, 400, { error: `Webhook Error: ${err.message}` });
     return;
   }
