@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LessonAI | 教材作成AIツール</title>
+    <title>LessonAI | AI学習支援ツール</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   
@@ -16,7 +16,7 @@
             <span class="brand-mark">L</span>
             <div>
               <h1>LessonAI</h1>
-              <p>教材のたたき台を数分で整える制作ツール</p>
+              <p>苦手な単元の練習教材をAIが数分で作ります</p>
             </div>
           </div>
 
@@ -81,7 +81,7 @@
             </label>
 
             <label>
-              授業時間
+              学習時間
               <select id="duration">
                 <option>30分</option>
                 <option selected>45分</option>
@@ -92,13 +92,13 @@
 
             <fieldset class="wide">
               <legend>出力形式</legend>
-              <label class="check"><input type="checkbox" name="audiences" value="student" checked />生徒用</label>
-              <label class="check"><input type="checkbox" name="audiences" value="teacher" checked />先生用</label>
+              <label class="check"><input type="checkbox" name="audiences" value="student" checked />問題プリント</label>
+              <label class="check"><input type="checkbox" name="audiences" value="teacher" checked />解答・解説</label>
             </fieldset>
 
             <label class="wide">
-              ねらい・条件
-              <textarea id="requirements" rows="5" placeholder="例: 英語が苦手な生徒でも参加しやすく、ペア活動を入れたい。">英語が苦手な生徒でも答えやすい例文から始め、最後に自分のことを1文で言えるようにする。</textarea>
+              こだわり・要望
+              <textarea id="requirements" rows="5" placeholder="例: 基礎から丁寧に、解説を多めに入れてほしい。">苦手な部分をしっかり練習できるよう、基礎問題から発展問題まで段階的に出してほしい。</textarea>
             </label>
 
             <label class="wide file-field">
@@ -135,14 +135,14 @@
               <button id="ai-edit-button" type="button" title="AIで現在の教材を修正">AI修正</button>
               <button id="save-edit-button" class="hidden" type="button" title="編集を保存">保存</button>
               <button id="cancel-edit-button" class="hidden" type="button" title="編集をキャンセル">取消</button>
-              <button id="student-pdf-button" type="button" title="生徒用PDFで保存">生徒PDF</button>
-              <button id="teacher-pdf-button" type="button" title="先生用PDFで保存">先生PDF</button>
+              <button id="student-pdf-button" type="button" title="問題プリントをPDFで保存">問題PDF</button>
+              <button id="teacher-pdf-button" type="button" title="解答・解説をPDFで保存">解答PDF</button>
             </div>
           </header>
 
           <nav class="tabs" aria-label="出力タブ">
-            <button class="tab active" type="button" data-tab="student">生徒用</button>
-            <button class="tab" type="button" data-tab="teacher">先生用</button>
+            <button class="tab active" type="button" data-tab="student">問題プリント</button>
+            <button class="tab" type="button" data-tab="teacher">解答・解説</button>
           </nav>
 
           <article id="student" class="result-panel"></article>
@@ -164,7 +164,7 @@
     <div id="upgrade-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
       <div class="modal">
         <h2>今月の無料回数を使い切りました</h2>
-        <p>無料プランでは月3回まで教材を生成できます。<br>Proプランなら無制限で使えます。</p>
+        <p>無料プランでは月3回まで教材を作れます。<br>Proプランなら無制限で使えます。</p>
         <div class="modal-actions">
           <button id="go-pro-button" type="button" class="primary-button">Proにアップグレード（¥980/月）</button>
           <button id="close-modal-button" type="button" class="modal-cancel">閉じる</button>

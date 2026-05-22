@@ -165,10 +165,10 @@ const HISTORY_KEY = "lessonai.history.v1";
 const HISTORY_LIMIT = 5;
 
 const materialLabels = {
-  lesson: "授業案",
-  worksheet: "ワークシート",
-  quiz: "小テスト",
-  rubric: "評価ルーブリック",
+  lesson: "学習の流れ",
+  worksheet: "練習問題",
+  quiz: "確認テスト",
+  rubric: "達成目標",
 };
 
 function escapeHtml(value) {
@@ -469,8 +469,8 @@ function renderMarkdownOutput(markdown, targetPanel, title) {
 }
 
 function renderLessonSections(studentMarkdown, teacherMarkdown) {
-  renderMarkdownOutput(studentMarkdown, studentPanel, "教材プリント");
-  renderMarkdownOutput(teacherMarkdown, teacherPanel, "先生用ガイド");
+  renderMarkdownOutput(studentMarkdown, studentPanel, "問題プリント");
+  renderMarkdownOutput(teacherMarkdown, teacherPanel, "解答・解説");
 }
 
 function getActivePanel() {
@@ -488,9 +488,9 @@ function setActiveMarkdown(markdown) {
 
 function renderActivePanel() {
   if (activeTabId === "teacher") {
-    renderMarkdownOutput(currentTeacherMarkdown, teacherPanel, "先生用ガイド");
+    renderMarkdownOutput(currentTeacherMarkdown, teacherPanel, "解答・解説");
   } else {
-    renderMarkdownOutput(currentStudentMarkdown, studentPanel, "教材プリント");
+    renderMarkdownOutput(currentStudentMarkdown, studentPanel, "問題プリント");
   }
 }
 
@@ -517,7 +517,7 @@ function startEditing() {
   const panel = getActivePanel();
   panel.innerHTML = `
     <section class="material-card editor-card">
-      <h3><span class="tag"></span>${activeTabId === "teacher" ? "先生用ガイドを編集" : "教材プリントを編集"}</h3>
+      <h3><span class="tag"></span>${activeTabId === "teacher" ? "解答・解説を編集" : "問題プリントを編集"}</h3>
       <textarea id="markdown-editor" class="markdown-editor">${escapeHtml(editingOriginal)}</textarea>
     </section>
   `;
@@ -596,10 +596,10 @@ function toStudentMarkdown(data, materials) {
   const lines = [
     `## ${data.topic}`,
     "",
-    "## 今日のゴール",
-    `- ${data.topic}の基本を理解する`,
-    "- 例を見ながら練習問題に取り組む",
-    "- 最後に自分で1問解けるようにする",
+    "## この教材でできること",
+    `- ${data.topic}の基礎をしっかり理解する`,
+    "- 例題を見ながら解き方を身につける",
+    "- 自分で問題を解けるようにする",
     "",
   ];
 
@@ -615,27 +615,27 @@ function toStudentMarkdown(data, materials) {
 
 function toTeacherMarkdown(data) {
   return [
-    "# 先生用ガイド",
+    "# 解答・解説",
     "",
-    "## 授業のねらい",
-    `- ${data.grade}の生徒が、${data.topic}を授業内で使える状態にする。`,
+    "## 学習目標",
+    `- ${data.topic}の基礎を理解し、自分で問題を解けるようにする。`,
     "",
-    "## 時間配分",
-    `- 導入: 5分`,
-    "- 説明: 10分",
-    "- 練習: 20分",
-    "- 確認と振り返り: 10分",
+    "## 目安時間",
+    "- 例題を読む: 5分",
+    "- 基礎問題: 10分",
+    "- 標準・発展問題: 20分",
+    "- 振り返り: 10分",
     "",
-    "## つまずきポイント",
-    "- 用語やルールを丸暗記しようとして、使う場面と結びつかない。",
-    "- 問題文の指示を読み飛ばして、形式を間違える。",
+    "## 注意ポイント",
+    "- 丸暗記ではなく、なぜそうなるかを理解しながら進めよう。",
+    "- 問題文をよく読んで、何を求めているか確認しよう。",
     "",
-    "## 声かけ例",
-    "- まずは例文と同じ形で考えてみよう。",
-    "- 迷ったら主語と動詞に印をつけよう。",
+    "## 解き方のヒント",
+    "- まずは例題と同じ形で考えてみよう。",
+    "- わからなくなったら基本に戻って確認しよう。",
     "",
-    "## 解答メモ",
-    "- 生成された問題を授業前に確認し、クラスの進度に合わせて調整してください。",
+    "## 解答",
+    "- AIで生成した教材の解答はこちらに表示されます。",
   ].join("\n");
 }
 
@@ -809,7 +809,7 @@ async function runAiEdit() {
       body: JSON.stringify({
         markdown: getActiveMarkdown(),
         instruction,
-        targetLabel: activeTabId === "teacher" ? "先生用ガイド" : "生徒用教材",
+        targetLabel: activeTabId === "teacher" ? "解答・解説" : "問題プリント",
       }),
     });
     const payload = await response.json();
@@ -976,11 +976,11 @@ function printMarkdown(markdown, title, label) {
 }
 
 studentPdfButton.addEventListener("click", () => {
-  printMarkdown(currentStudentMarkdown, getFormData().topic, "生徒用プリント");
+  printMarkdown(currentStudentMarkdown, getFormData().topic, "問題プリント");
 });
 
 teacherPdfButton.addEventListener("click", () => {
-  printMarkdown(currentTeacherMarkdown, `${getFormData().topic} 先生用`, "先生用ガイド");
+  printMarkdown(currentTeacherMarkdown, `${getFormData().topic} 解答・解説`, "解答・解説");
 });
 
 updateOutput();
