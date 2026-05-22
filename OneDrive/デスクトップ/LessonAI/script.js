@@ -17,7 +17,10 @@ async function initAuth() {
   try {
     const res = await fetch("/api/config");
     const cfg = await res.json();
-    if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) return;
+    if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+      loginButton.classList.remove("hidden");
+      return;
+    }
 
     supabaseClient = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
@@ -33,6 +36,8 @@ async function initAuth() {
     await refreshUserInfo();
   } catch (e) {
     console.warn("[auth] init failed", e);
+    loginButton.classList.remove("hidden");
+    userInfo.classList.add("hidden");
   }
 }
 
@@ -135,6 +140,7 @@ const studentPdfButton = document.querySelector("#student-pdf-button");
 const teacherPdfButton = document.querySelector("#teacher-pdf-button");
 const generateLabel = document.querySelector("#generate-label");
 const statusMessage = document.querySelector("#status-message");
+const authMessage = document.querySelector("#auth-message");
 const sourcePdfInput = document.querySelector("#source-pdf");
 const pdfStatus = document.querySelector("#pdf-status");
 const historyList = document.querySelector("#history-list");
@@ -672,10 +678,10 @@ async function generateWithAi() {
     }
 
     if (!currentSession && supabaseClient) {
-      statusMessage.textContent = "ログインが必要です。";
-      statusMessage.classList.add("error");
+      authMessage.textContent = "ログインが必要です。";
       return;
     }
+    authMessage.textContent = "";
 
     const response = await fetch("/api/generate", {
       method: "POST",
@@ -694,8 +700,7 @@ async function generateWithAi() {
     }
 
     if (response.status === 401) {
-      statusMessage.textContent = "ログインが必要です。";
-      statusMessage.classList.add("error");
+      authMessage.textContent = "ログインが必要です。";
       return;
     }
 

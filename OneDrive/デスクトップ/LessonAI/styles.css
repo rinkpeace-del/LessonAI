@@ -280,7 +280,7 @@ legend {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 .material-card {
@@ -627,6 +627,14 @@ legend {
   font-weight: 800;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.auth-message {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #b2374f;
+  text-align: center;
+  min-height: 1em;
 }
 
 .login-button {
