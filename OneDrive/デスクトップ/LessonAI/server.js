@@ -622,20 +622,27 @@ async function handleRequest(request, response) {
             sendJson(response, 401, { error: "ログインが必要です。" });
             return;
           }
-          const profile = await ensureProfile(user);
-          const isPro = profile.subscription_status === "active";
-          if (!isPro) {
-            const count = await getUsageCount(user.id);
-            if (count >= FREE_LIMIT) {
-              sendJson(response, 402, {
-                error: `今月の無料生成回数（${FREE_LIMIT}回）を使い切りました。Proプランにアップグレードしてください。`,
-              });
-              return;
+          let isPro = false;
+          let trackUsage = false;
+          try {
+            const profile = await ensureProfile(user);
+            isPro = profile.subscription_status === "active";
+            if (!isPro) {
+              const count = await getUsageCount(user.id);
+              if (count >= FREE_LIMIT) {
+                sendJson(response, 402, {
+                  error: `今月の無料生成回数（${FREE_LIMIT}回）を使い切りました。Proプランにアップグレードしてください。`,
+                });
+                return;
+              }
             }
+            trackUsage = true;
+          } catch (dbErr) {
+            console.error("[db] profile/usage check failed, proceeding without limit:", dbErr.message);
           }
           const data = await readJson(request);
           const result = await generateLesson(data);
-          await incrementUsage(user.id);
+          if (trackUsage) await incrementUsage(user.id).catch(() => {});
           sendJson(response, 200, result);
         } else {
           const data = await readJson(request);
