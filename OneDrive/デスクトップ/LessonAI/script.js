@@ -159,6 +159,7 @@ let activeTabId = "student";
 let extractedPdf = null;
 let isEditing = false;
 let editingOriginal = "";
+let generateAbortController = null;
 
 const HISTORY_KEY = "lessonai.history.v1";
 const HISTORY_LIMIT = 5;
@@ -653,6 +654,13 @@ function updateOutput() {
 }
 
 async function generateWithAi() {
+  const submitButton = form.querySelector("button[type='submit']");
+
+  if (generateAbortController) {
+    generateAbortController.abort();
+    return;
+  }
+
   const data = getFormData();
   const materials = buildMaterials(data);
   syncAudienceUi(data.audiences);
@@ -663,9 +671,8 @@ async function generateWithAi() {
   currentTeacherMarkdown = toTeacherMarkdown(data);
   currentMarkdown = `${currentStudentMarkdown}\n\n${currentTeacherMarkdown}`;
 
-  const submitButton = form.querySelector("button[type='submit']");
-  submitButton.disabled = true;
-  generateLabel.textContent = "生成中...";
+  generateAbortController = new AbortController();
+  generateLabel.textContent = "キャンセル";
   statusMessage.textContent = "AIが教材を作成しています。少しだけ待ってください。";
   statusMessage.classList.remove("error");
 
@@ -686,6 +693,7 @@ async function generateWithAi() {
     const response = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      signal: generateAbortController.signal,
       body: JSON.stringify({
         ...data,
         materials: data.materials.map((type) => materialLabels[type] || type),
@@ -717,15 +725,20 @@ async function generateWithAi() {
     statusMessage.textContent = `${payload.model}で生成しました。`;
     refreshUserInfo();
   } catch (error) {
-    renderLessonSections(currentStudentMarkdown, currentTeacherMarkdown);
-    statusMessage.textContent = `AI生成に失敗したため、ローカルのたたき台を表示しています。${error.message}`;
-    statusMessage.classList.add("error");
-    if (sourcePdfInput.files?.[0]) {
-      pdfStatus.textContent = error.message;
-      pdfStatus.classList.add("error");
+    if (error.name === "AbortError") {
+      statusMessage.textContent = "生成をキャンセルしました。";
+      statusMessage.classList.remove("error");
+    } else {
+      renderLessonSections(currentStudentMarkdown, currentTeacherMarkdown);
+      statusMessage.textContent = `AI生成に失敗したため、ローカルのたたき台を表示しています。${error.message}`;
+      statusMessage.classList.add("error");
+      if (sourcePdfInput.files?.[0]) {
+        pdfStatus.textContent = error.message;
+        pdfStatus.classList.add("error");
+      }
     }
   } finally {
-    submitButton.disabled = false;
+    generateAbortController = null;
     generateLabel.textContent = "AIで教材を生成";
   }
 }
