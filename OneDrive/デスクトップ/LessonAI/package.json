@@ -4,6 +4,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
+    "gray-matter": "^4.0.3",
+    "marked": "^18.0.4",
     "pdf-parse": "^2.4.5",
     "stripe": "^22.1.1"
   }
