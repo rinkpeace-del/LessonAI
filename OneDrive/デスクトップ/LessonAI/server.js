@@ -15,6 +15,13 @@ const contentTypes = {
   ".js": "text/javascript; charset=utf-8",
   ".md": "text/markdown; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
 };
 
 async function loadEnvFile() {
@@ -537,7 +544,8 @@ async function handleWebhook(request, response) {
 
 async function serveStatic(request, response) {
   const url = new URL(request.url, `http://${request.headers.host}`);
-  const requestedPath = url.pathname === "/" ? "/index.html" : url.pathname;
+  let requestedPath = url.pathname;
+  if (requestedPath.endsWith("/")) requestedPath += "index.html";
   const filePath = path.normalize(path.join(ROOT, requestedPath));
 
   if (!filePath.startsWith(ROOT)) {
