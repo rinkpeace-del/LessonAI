@@ -22,6 +22,7 @@ const contentTypes = {
   ".webp": "image/webp",
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
+  ".xml": "application/xml; charset=utf-8",
 };
 
 async function loadEnvFile() {
