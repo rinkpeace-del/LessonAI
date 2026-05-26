@@ -157,6 +157,41 @@
   text-decoration: underline;
 }
 
+/* ── 関連記事 ──────────────────────────────── */
+.related-articles {
+  margin-top: 48px;
+  padding: 24px 28px;
+  background: #f8fafa;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
+.related-articles h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+
+.related-articles ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.related-articles a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.related-articles a:hover {
+  text-decoration: underline;
+}
+
 /* ── レスポンシブ ──────────────────────────── */
 @media (max-width: 600px) {
   .blog-nav {
