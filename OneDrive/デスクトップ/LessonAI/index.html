@@ -132,6 +132,11 @@
               <span id="pdf-status" class="field-note">PDFを追加すると、その内容を参考に教材を作ります。</span>
             </label>
 
+            <div id="share-bonus-banner" class="share-bonus-banner hidden wide">
+              <p class="share-bonus-text">今月の残り回数が少なくなっています</p>
+              <button id="share-bonus-button" type="button" class="share-bonus-button">X でシェアして+3回もらう</button>
+            </div>
+
             <button type="submit" class="primary-button">
               <span id="generate-label">AIで教材を生成</span>
             </button>
@@ -172,6 +177,11 @@
 
           <article id="student" class="result-panel"></article>
           <article id="teacher" class="result-panel hidden"></article>
+          <div id="share-prompt" class="share-prompt hidden" aria-label="SNSシェア">
+            <p class="share-prompt-text">教材が完成しました！友達にも教えてあげよう</p>
+            <button id="share-x-button" type="button" class="share-x-button">X でシェアする</button>
+          </div>
+
           <div id="referral-prompt" class="referral-prompt hidden" aria-label="友達紹介">
             <p class="referral-prompt-text">教材が完成しました！友達を招待すると、あなたも友達も1ヶ月無料になります。</p>
             <button id="copy-referral-prompt-button" type="button" class="copy-referral-prompt-button">紹介リンクをコピー</button>

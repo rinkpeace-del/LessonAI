@@ -90,6 +90,53 @@ async function copyReferralLink(button) {
 copyReferralButton?.addEventListener("click", () => copyReferralLink(copyReferralButton));
 copyReferralPromptButton?.addEventListener("click", () => copyReferralLink(copyReferralPromptButton));
 
+// ── SNS シェア ────────────────────────────────────────────────────────────────
+const sharePrompt = document.querySelector("#share-prompt");
+const shareXButton = document.querySelector("#share-x-button");
+const shareBonusBanner = document.querySelector("#share-bonus-banner");
+const shareBonusButton = document.querySelector("#share-bonus-button");
+
+let currentShareRewarded = false;
+
+function buildTweetText() {
+  const data = getFormData();
+  return `${data.subject}「${data.topic}」の練習プリントをAIで1分で作った📝\n苦手な単元を入れるだけで問題と解答がセットで完成✨\n\n#LessonAI #家庭学習\nhttps://lessonai.jp`;
+}
+
+function openShareX() {
+  const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(buildTweetText())}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+async function claimShareBonus() {
+  if (!currentSession) return;
+  try {
+    const res = await fetch("/api/share-reward", {
+      method: "POST",
+      headers: getAuthHeaders(),
+    });
+    const data = await res.json();
+    if (data.rewarded) {
+      statusMessage.textContent = "+3回追加しました！今月は合計6回使えます。";
+      statusMessage.classList.remove("error");
+      currentShareRewarded = true;
+      shareBonusBanner?.classList.add("hidden");
+      await refreshUserInfo();
+    }
+  } catch {
+    // ignore
+  }
+}
+
+shareXButton?.addEventListener("click", () => {
+  openShareX();
+});
+
+shareBonusButton?.addEventListener("click", async () => {
+  openShareX();
+  await claimShareBonus();
+});
+
 async function initAuth() {
   try {
     // 紹介リンク経由のバナーを事前表示
@@ -154,6 +201,13 @@ async function refreshUserInfo() {
         upgradeButton.classList.add("hidden");
       }
       updateReferralSection(data);
+      currentShareRewarded = !!data.shareRewarded;
+      // 残り回数が1以下かつ未シェアならボーナスバナーを表示
+      if (data.usageLimit !== null && data.usageCount >= data.usageLimit - 1 && !data.shareRewarded) {
+        shareBonusBanner?.classList.remove("hidden");
+      } else {
+        shareBonusBanner?.classList.add("hidden");
+      }
     }
   } catch {
     // ignore
@@ -815,6 +869,7 @@ async function generateWithAi() {
     if (referralPrompt && currentReferralLink) {
       referralPrompt.classList.remove("hidden");
     }
+    sharePrompt?.classList.remove("hidden");
   } catch (error) {
     if (error.name === "AbortError") {
       statusMessage.textContent = "生成をキャンセルしました。";

@@ -469,15 +469,40 @@ async function handleAuthMe(request, response) {
   const usageCount = await getUsageCount(user.id);
   const isPro = isProfilePro(profile);
   const appUrl = process.env.APP_URL || "http://localhost:3000";
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const shareRewarded = !!(profile.last_share_rewarded_at && profile.last_share_rewarded_at.slice(0, 7) === thisMonth);
+  const shareBonus = shareRewarded ? 3 : 0;
   sendJson(response, 200, {
     email: user.email,
     plan: isPro ? "pro" : "free",
     usageCount,
-    usageLimit: isPro ? null : FREE_LIMIT,
+    usageLimit: isPro ? null : FREE_LIMIT + shareBonus,
+    shareRewarded,
     referralCode: profile.referral_code || null,
     referralLink: profile.referral_code ? `${appUrl}/?ref=${profile.referral_code}` : null,
     referralCount: profile.referral_count || 0,
   });
+}
+
+async function handleShareReward(request, response) {
+  const user = await getAuthUser(request);
+  if (!user) {
+    sendJson(response, 401, { error: "Unauthorized" });
+    return;
+  }
+  const profile = await ensureProfile(user);
+  const thisMonth = new Date().toISOString().slice(0, 7);
+
+  if (profile.last_share_rewarded_at && profile.last_share_rewarded_at.slice(0, 7) === thisMonth) {
+    sendJson(response, 200, { rewarded: false, message: "今月はすでにシェア報酬を受け取っています。" });
+    return;
+  }
+
+  await supabaseAdmin.from("profiles").update({
+    last_share_rewarded_at: new Date().toISOString(),
+  }).eq("id", user.id);
+
+  sendJson(response, 200, { rewarded: true, bonus: 3, message: "+3回追加しました！" });
 }
 
 async function handleReferralLookup(request, response) {
@@ -702,6 +727,15 @@ async function handleRequest(request, response) {
 
     if (method === "GET" && pathname === "/api/auth/me") {
       await handleAuthMe(request, response);
+      return;
+    }
+
+    if (method === "POST" && pathname === "/api/share-reward") {
+      try {
+        await handleShareReward(request, response);
+      } catch (error) {
+        sendJson(response, error.status || 500, { error: error.message });
+      }
       return;
     }
 
