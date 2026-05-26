@@ -11,6 +11,11 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://lessonai.jp/blog/english-review-method/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://lessonai.jp/blog/ai-tools-for-english/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
