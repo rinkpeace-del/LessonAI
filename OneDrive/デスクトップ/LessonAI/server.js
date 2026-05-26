@@ -395,9 +395,16 @@ async function ensureProfile(user) {
     .eq("id", user.id)
     .single();
   if (!profile) {
-    const row = { id: user.id, email: user.email, subscription_status: "free" };
+    const referralCode = await generateUniqueReferralCode();
+    const row = { id: user.id, email: user.email, subscription_status: "free", referral_code: referralCode, referral_count: 0 };
     await supabaseAdmin.from("profiles").insert(row);
     return row;
+  }
+  // 既存ユーザーに紹介コードがなければバックフィル
+  if (!profile.referral_code) {
+    const referralCode = await generateUniqueReferralCode();
+    await supabaseAdmin.from("profiles").update({ referral_code: referralCode }).eq("id", user.id);
+    profile.referral_code = referralCode;
   }
   return profile;
 }
@@ -422,6 +429,27 @@ async function incrementUsage(userId) {
   );
 }
 
+function generateReferralCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.randomBytes(8);
+  return Array.from(bytes).map(b => chars[b % chars.length]).join("");
+}
+
+async function generateUniqueReferralCode() {
+  for (let i = 0; i < 10; i++) {
+    const code = generateReferralCode();
+    const { data } = await supabaseAdmin.from("profiles").select("id").eq("referral_code", code).maybeSingle();
+    if (!data) return code;
+  }
+  return generateReferralCode();
+}
+
+function isProfilePro(profile) {
+  if (profile.subscription_status === "active") return true;
+  if (profile.pro_expires_at && new Date(profile.pro_expires_at) > new Date()) return true;
+  return false;
+}
+
 // ── Route handlers ───────────────────────────────────────────────────────────
 
 function handleConfig(request, response) {
@@ -439,13 +467,105 @@ async function handleAuthMe(request, response) {
   }
   const profile = await ensureProfile(user);
   const usageCount = await getUsageCount(user.id);
-  const isPro = profile.subscription_status === "active";
+  const isPro = isProfilePro(profile);
+  const appUrl = process.env.APP_URL || "http://localhost:3000";
   sendJson(response, 200, {
     email: user.email,
     plan: isPro ? "pro" : "free",
     usageCount,
     usageLimit: isPro ? null : FREE_LIMIT,
+    referralCode: profile.referral_code || null,
+    referralLink: profile.referral_code ? `${appUrl}/?ref=${profile.referral_code}` : null,
+    referralCount: profile.referral_count || 0,
   });
+}
+
+async function handleReferralLookup(request, response) {
+  const url = new URL(request.url, `http://${request.headers.host}`);
+  const code = (url.searchParams.get("ref") || "").trim().toUpperCase();
+  if (!code || code.length !== 8) {
+    sendJson(response, 400, { error: "Invalid code" });
+    return;
+  }
+  const { data: referrer } = await supabaseAdmin
+    .from("profiles")
+    .select("email")
+    .eq("referral_code", code)
+    .maybeSingle();
+  if (!referrer) {
+    sendJson(response, 404, { error: "Not found" });
+    return;
+  }
+  const referrerName = referrer.email ? referrer.email.split("@")[0] : "友達";
+  sendJson(response, 200, { referrerName });
+}
+
+async function handleReferralApply(request, response) {
+  const user = await getAuthUser(request);
+  if (!user) {
+    sendJson(response, 401, { error: "Unauthorized" });
+    return;
+  }
+  const body = await readJson(request);
+  const code = typeof body.refCode === "string" ? body.refCode.trim().toUpperCase() : "";
+  if (!code || code.length !== 8) {
+    sendJson(response, 400, { error: "紹介コードが不正です。" });
+    return;
+  }
+
+  const profile = await ensureProfile(user);
+
+  if (profile.referred_by) {
+    sendJson(response, 400, { error: "既に紹介コードを使用済みです。" });
+    return;
+  }
+  if (profile.referral_code === code) {
+    sendJson(response, 400, { error: "自分の紹介コードは使えません。" });
+    return;
+  }
+
+  const { data: referrer } = await supabaseAdmin
+    .from("profiles")
+    .select("*")
+    .eq("referral_code", code)
+    .maybeSingle();
+
+  if (!referrer) {
+    sendJson(response, 404, { error: "紹介コードが見つかりません。" });
+    return;
+  }
+
+  const now = new Date();
+
+  // 紹介された側：1ヶ月無料
+  const newUserExpires = new Date(now);
+  newUserExpires.setMonth(newUserExpires.getMonth() + 1);
+  await supabaseAdmin.from("profiles").update({
+    referred_by: code,
+    pro_expires_at: newUserExpires.toISOString(),
+  }).eq("id", user.id);
+
+  // 紹介した側：上限3ヶ月まで累積
+  const referrerCount = referrer.referral_count || 0;
+  if (referrerCount < 3) {
+    const base = referrer.pro_expires_at && new Date(referrer.pro_expires_at) > now
+      ? new Date(referrer.pro_expires_at)
+      : new Date(now);
+    base.setMonth(base.getMonth() + 1);
+    await supabaseAdmin.from("profiles").update({
+      pro_expires_at: base.toISOString(),
+      referral_count: referrerCount + 1,
+    }).eq("id", referrer.id);
+  }
+
+  // 紹介記録を保存
+  await supabaseAdmin.from("referrals").insert({
+    referrer_id: referrer.id,
+    referred_id: user.id,
+    rewarded_at: now.toISOString(),
+  });
+
+  sendJson(response, 200, { success: true, message: "1ヶ月無料が付与されました！" });
 }
 
 async function handleCheckout(request, response) {
@@ -582,6 +702,24 @@ async function handleRequest(request, response) {
 
     if (method === "GET" && pathname === "/api/auth/me") {
       await handleAuthMe(request, response);
+      return;
+    }
+
+    if (method === "GET" && pathname === "/api/referral/lookup") {
+      try {
+        await handleReferralLookup(request, response);
+      } catch (error) {
+        sendJson(response, error.status || 500, { error: error.message });
+      }
+      return;
+    }
+
+    if (method === "POST" && pathname === "/api/referral/apply") {
+      try {
+        await handleReferralApply(request, response);
+      } catch (error) {
+        sendJson(response, error.status || 500, { error: error.message });
+      }
       return;
     }
 

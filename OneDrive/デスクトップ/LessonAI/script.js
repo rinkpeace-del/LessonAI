@@ -1,3 +1,12 @@
+// ── Referral: URLパラメータ取得 ───────────────────────────────────────────────
+(function captureRefParam() {
+  const params = new URLSearchParams(window.location.search);
+  const ref = params.get("ref");
+  if (ref && /^[A-Z0-9]{8}$/i.test(ref)) {
+    sessionStorage.setItem("lessonai.ref", ref.toUpperCase());
+  }
+})();
+
 // ── Auth state ───────────────────────────────────────────────────────────────
 let supabaseClient = null;
 let currentSession = null;
@@ -13,8 +22,79 @@ const upgradeModal = document.querySelector("#upgrade-modal");
 const goProButton = document.querySelector("#go-pro-button");
 const closeModalButton = document.querySelector("#close-modal-button");
 
+// ── Referral UI 要素 ──────────────────────────────────────────────────────────
+const referralBanner = document.querySelector("#referral-banner");
+const referralBannerText = document.querySelector("#referral-banner-text");
+const referralSection = document.querySelector("#referral-section");
+const referralCountText = document.querySelector("#referral-count-text");
+const referralLinkInput = document.querySelector("#referral-link-input");
+const copyReferralButton = document.querySelector("#copy-referral-button");
+const referralPrompt = document.querySelector("#referral-prompt");
+const copyReferralPromptButton = document.querySelector("#copy-referral-prompt-button");
+
+let currentReferralLink = null;
+
+async function showReferralBanner() {
+  const refCode = sessionStorage.getItem("lessonai.ref");
+  if (!refCode || !referralBanner) return;
+  try {
+    const res = await fetch(`/api/referral/lookup?ref=${encodeURIComponent(refCode)}`);
+    if (res.ok) {
+      const data = await res.json();
+      referralBannerText.textContent = `${data.referrerName}さんから招待されました。登録して1ヶ月無料で始めよう！`;
+    }
+  } catch {
+    // ネットワークエラーは無視
+  }
+  referralBanner.classList.remove("hidden");
+}
+
+async function applyPendingReferral() {
+  const refCode = sessionStorage.getItem("lessonai.ref");
+  if (!refCode || !currentSession) return;
+  sessionStorage.removeItem("lessonai.ref");
+  try {
+    await fetch("/api/referral/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({ refCode }),
+    });
+  } catch {
+    // サイレント失敗
+  }
+  if (referralBanner) referralBanner.classList.add("hidden");
+}
+
+function updateReferralSection(data) {
+  if (!referralSection || !data.referralLink) return;
+  currentReferralLink = data.referralLink;
+  referralLinkInput.value = data.referralLink;
+  const count = data.referralCount || 0;
+  referralCountText.textContent = `${count}/3人紹介済み`;
+  referralSection.classList.remove("hidden");
+}
+
+async function copyReferralLink(button) {
+  if (!currentReferralLink) return;
+  try {
+    await navigator.clipboard.writeText(currentReferralLink);
+    const orig = button.textContent;
+    button.textContent = "コピーしました";
+    setTimeout(() => { button.textContent = orig; }, 1500);
+  } catch {
+    button.textContent = "コピー失敗";
+    setTimeout(() => { button.textContent = "コピー"; }, 1500);
+  }
+}
+
+copyReferralButton?.addEventListener("click", () => copyReferralLink(copyReferralButton));
+copyReferralPromptButton?.addEventListener("click", () => copyReferralLink(copyReferralPromptButton));
+
 async function initAuth() {
   try {
+    // 紹介リンク経由のバナーを事前表示
+    showReferralBanner();
+
     const res = await fetch("/api/config");
     const cfg = await res.json();
     if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
@@ -28,12 +108,19 @@ async function initAuth() {
       currentSession = session;
       currentUser = session?.user || null;
       await refreshUserInfo();
+      if (event === "SIGNED_IN") {
+        await applyPendingReferral();
+      }
     });
 
     const { data: { session } } = await supabaseClient.auth.getSession();
     currentSession = session;
     currentUser = session?.user || null;
     await refreshUserInfo();
+    // 既ログイン時も未適用の紹介コードがあれば適用
+    if (currentSession) {
+      await applyPendingReferral();
+    }
   } catch (e) {
     console.warn("[auth] init failed", e);
     loginButton.classList.remove("hidden");
@@ -66,6 +153,7 @@ async function refreshUserInfo() {
         usageBadge.textContent = "Pro";
         upgradeButton.classList.add("hidden");
       }
+      updateReferralSection(data);
     }
   } catch {
     // ignore
@@ -724,6 +812,9 @@ async function generateWithAi() {
     saveCurrentHistory(data, payload.model);
     statusMessage.textContent = `${payload.model}で生成しました。`;
     refreshUserInfo();
+    if (referralPrompt && currentReferralLink) {
+      referralPrompt.classList.remove("hidden");
+    }
   } catch (error) {
     if (error.name === "AbortError") {
       statusMessage.textContent = "生成をキャンセルしました。";

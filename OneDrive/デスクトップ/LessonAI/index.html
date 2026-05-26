@@ -30,6 +30,10 @@
             </div>
           </div>
 
+          <div id="referral-banner" class="referral-banner hidden">
+            <p id="referral-banner-text">招待リンクからアクセスしました。登録して1ヶ月無料で始めよう！</p>
+          </div>
+
           <div id="auth-bar" class="auth-bar">
             <div id="user-info" class="user-info hidden">
               <span id="user-email" class="user-email"></span>
@@ -38,6 +42,17 @@
               <button id="logout-button" type="button" class="logout-button">ログアウト</button>
             </div>
             <button id="login-button" type="button" class="login-button hidden">Googleでログイン</button>
+          </div>
+
+          <div id="referral-section" class="referral-section hidden">
+            <div class="referral-section-header">
+              <span class="referral-section-label">友達を招待して1ヶ月無料</span>
+              <span id="referral-count-text" class="referral-count-text"></span>
+            </div>
+            <div class="referral-link-row">
+              <input id="referral-link-input" type="text" readonly class="referral-link-input" aria-label="紹介リンク" />
+              <button id="copy-referral-button" type="button" class="copy-referral-button">コピー</button>
+            </div>
           </div>
 
           <form id="lesson-form" class="lesson-form">
@@ -157,6 +172,11 @@
 
           <article id="student" class="result-panel"></article>
           <article id="teacher" class="result-panel hidden"></article>
+          <div id="referral-prompt" class="referral-prompt hidden" aria-label="友達紹介">
+            <p class="referral-prompt-text">教材が完成しました！友達を招待すると、あなたも友達も1ヶ月無料になります。</p>
+            <button id="copy-referral-prompt-button" type="button" class="copy-referral-prompt-button">紹介リンクをコピー</button>
+          </div>
+
           <section id="ai-edit-panel" class="ai-edit-panel hidden" aria-label="AI修正">
             <label>
               AIへの修正指示

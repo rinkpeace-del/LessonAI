@@ -826,3 +826,121 @@ legend {
 .site-footer a:hover {
   text-decoration: underline;
 }
+
+/* ── 紹介バナー ─────────────────────────────────────────────────────────────── */
+.referral-banner {
+  margin-bottom: 14px;
+  padding: 11px 14px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(13,124,115,0.12), rgba(243,180,63,0.12));
+  border: 1px solid rgba(13,124,115,0.25);
+}
+
+.referral-banner p {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-dark);
+  line-height: 1.5;
+}
+
+/* ── 紹介セクション（ログイン後）──────────────────────────────────────────── */
+.referral-section {
+  margin-top: 14px;
+  padding: 13px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fbfcfd;
+}
+
+.referral-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.referral-section-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--accent-dark);
+}
+
+.referral-count-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.referral-link-row {
+  display: flex;
+  gap: 6px;
+}
+
+.referral-link-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  cursor: text;
+}
+
+.copy-referral-button {
+  flex: 0 0 auto;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--accent-dark);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.copy-referral-button:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── 生成完了後の紹介プロンプト ─────────────────────────────────────────────── */
+.referral-prompt {
+  margin: 0 24px 16px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(13,124,115,0.08), rgba(243,180,63,0.08));
+  border: 1px solid rgba(13,124,115,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.referral-prompt-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-dark);
+  line-height: 1.5;
+}
+
+.copy-referral-prompt-button {
+  flex: 0 0 auto;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.copy-referral-prompt-button:hover {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+}
